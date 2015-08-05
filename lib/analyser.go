@@ -1,5 +1,5 @@
 package lib
 
 type Analyser interface {
-    Analyse(page *Page) *Result
+	Analyse(page *Page) *Result
 }

@@ -1,9 +1,9 @@
 package lib
 
 import (
-    "net/http"
+	"net/http"
 )
 
 type Downloader interface {
-    Download(req *http.Request) (*http.Response, error)
+	Download(req *http.Request) (*http.Response, error)
 }

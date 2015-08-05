@@ -1,11 +1,11 @@
 package lib
 
 import (
-    "net/http"
+	"net/http"
 )
 
 type Scheduler interface {
-    Add(req *http.Request)
-    Get() *http.Request
-    Count() int
+	Add(req *http.Request)
+	Get() *http.Request
+	Count() int
 }

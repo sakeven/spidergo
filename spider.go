@@ -1,79 +1,79 @@
 package spidergo
 
 import (
-    // "log"
-    "net/http"
-    // "runtime"
+	// "log"
+	"net/http"
+	// "runtime"
 
-    // "github.com/PuerkitoBio/goquery"
-    "github.com/sakeven/spidergo/lib"
+	// "github.com/PuerkitoBio/goquery"
+	"github.com/sakeven/spidergo/lib"
 )
 
 type Spider struct {
-    downloader lib.Downloader
-    analyser   lib.Analyser
-    scheduler  lib.Scheduler
-    threadNum  uint
+	downloader lib.Downloader
+	analyser   lib.Analyser
+	scheduler  lib.Scheduler
+	threadNum  uint
 }
 
 type Result struct {
 }
 
 func New(analyser lib.Analyser) *Spider {
-    s := new(Spider)
-    s.threadNum = 1
-    s.analyser = analyser
-    return s
+	s := new(Spider)
+	s.threadNum = 1
+	s.analyser = analyser
+	return s
 }
 
 func (s *Spider) AddRequest(req *http.Request) *Spider {
-    s.scheduler.Add(req)
+	s.scheduler.Add(req)
 
-    return s
+	return s
 }
 
 func (s *Spider) RegisterDownload(download lib.Downloader) *Spider {
-    s.downloader = download
+	s.downloader = download
 
-    return s
+	return s
 }
 
 func (s *Spider) RegisterScheduler(scheduler lib.Scheduler) *Spider {
-    s.scheduler = scheduler
-    return s
+	s.scheduler = scheduler
+	return s
 }
 
 func (s *Spider) SetThreadNum(n uint) *Spider {
-    s.threadNum = n
+	s.threadNum = n
 
-    return s
+	return s
 }
 
 func (s *Spider) Run() {
-    pool := lib.NewPool(s.threadNum)
+	pool := lib.NewPool(s.threadNum)
 
-    for pool.Count() > 0 || s.scheduler.Count() > 0 {
-        req := s.scheduler.Get()
-        if req == nil {
-            continue
-        }
-        pool.Get()
+	for pool.Count() > 0 || s.scheduler.Count() > 0 {
+		req := s.scheduler.Get()
+		if req == nil {
+			continue
+		}
+		pool.Get()
 
-        go func() {
-            defer pool.Release()
+		go func() {
+			defer pool.Release()
 
-            res, _ := s.downloader.Download(req)
+			res, _ := s.downloader.Download(req)
 
-            page := lib.NewPage(res)
-            s.analyser.Analyse(page)
-            for _, req := range page.NewReqs {
-                s.scheduler.Add(req)
-            }
-        }()
-    }
+			page := lib.NewPage(res)
+			s.analyser.Analyse(page)
+			for _, req := range page.NewReqs {
+				s.scheduler.Add(req)
+			}
+		}()
+	}
 
-    // for true {
-    // runtime.Gosched()
-    //}
+	// for true {
+	// runtime.Gosched()
+	//}
 
 }
