@@ -1,4 +1,4 @@
-package lib
+package downloader
 
 import (
 	"net/http"
