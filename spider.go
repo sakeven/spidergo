@@ -2,7 +2,7 @@ package spidergo
 
 import (
 	// "log"
-	"log"
+
 	"net/http"
 	// "runtime"
 
@@ -110,13 +110,12 @@ func (s *Spider) Run() {
 		}
 		pool.Get()
 
-		log.Println(req.Depth)
 		go func() {
 			defer pool.Release()
 
 			res, _ := s._downloader.Download(req.Req)
 
-			page := page.NewPage(res, s.oriCharset)
+			page := page.NewPage(req.Req, res, s.oriCharset)
 			s._analyser.Analyse(page)
 			for _, r := range page.NewReqs {
 				s._scheduler.Add(request.New(r, req.Depth+1))

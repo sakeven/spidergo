@@ -29,7 +29,7 @@ type Page struct {
 	NewReqs []*http.Request
 }
 
-func NewPage(res *http.Response, charset string) *Page {
+func NewPage(req *http.Request, res *http.Response, charset string) *Page {
 
 	page := new(Page)
 	page.NewReqs = make([]*http.Request, 0)
@@ -38,6 +38,7 @@ func NewPage(res *http.Response, charset string) *Page {
 	page.Cookies = res.Cookies()
 	page.StatusCode = res.StatusCode
 	page.OriCharset = charset
+	page.Req = req
 
 	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
