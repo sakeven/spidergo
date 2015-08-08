@@ -5,27 +5,41 @@ package pool
 // )
 
 type Pool struct {
-	c     chan uint
+	c     chan interface{}
 	used  uint
 	total uint
 }
 
-func NewPool(n uint) *Pool {
+func New(n uint, void interface{}) *Pool {
 	p := new(Pool)
-	p.c = make(chan uint, n)
+	p.c = make(chan interface{}, n)
 	p.total = n
 	p.used = 0
 
 	for i := uint(1); i <= n; i++ {
-		p.c <- 1
+		p.c <- void
 	}
 
 	return p
 }
-func (p *Pool) Get() {
-	<-p.c
+
+func NewPool(n uint) *Pool {
+	p := new(Pool)
+	p.c = make(chan interface{}, n)
+	p.total = n
+	p.used = 0
+
+	for i := uint(1); i <= n; i++ {
+		p.c <- 0
+	}
+
+	return p
+}
+func (p *Pool) Get() interface{} {
+	c := <-p.c
 	p.used++
 	// log.Println("get")
+	return c
 }
 
 func (p *Pool) Release() {

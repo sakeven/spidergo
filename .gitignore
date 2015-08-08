@@ -26,3 +26,5 @@ _testmain.go
 #temp
 *.swp
 .Ds_Store
+out/
+main

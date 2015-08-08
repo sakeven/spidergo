@@ -22,6 +22,8 @@ func main() {
 		SetThreadNum(4).
 		AddRequest(req).
 		SetOriCharset("gb2312").
+		SetDelay(uint(1)).
+		SetDepth(uint(4)).
 		Run()
 }
 
@@ -34,9 +36,10 @@ func (a *Analyser) Analyse(page *page.Page) *result.Result {
 		return nil
 	}
 
+	log.Println(page.Req.Req.URL.String())
+
 	if page.ContentType == "image/jpeg" {
-		log.Println(page.Req.URL.String())
-		path := strings.Split(page.Req.URL.String(), "/")
+		path := strings.Split(page.Req.Req.URL.String(), "/")
 		f, err := os.Create("out/" + path[len(path)-1])
 		if err != nil {
 			log.Println(err)
@@ -81,7 +84,6 @@ func (a *Analyser) Analyse(page *page.Page) *result.Result {
 	titleRx := regexp.MustCompile(titlePat)
 	match := titleRx.FindAllString(text, -1)
 	for _, m := range match {
-		log.Println(m)
 		pro := strings.Split(m, ",")
 		if len(pro) >= 2 {
 			href := "http://acm.hdu.edu.cn/showproblem.php?pid=" + pro[1]

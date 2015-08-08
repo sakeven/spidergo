@@ -11,10 +11,11 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	iconv "github.com/djimenez/iconv-go"
+	"github.com/sakeven/spidergo/lib/request"
 )
 
 type Page struct {
-	Req         *http.Request
+	Req         *request.Request
 	Cookies     []*http.Cookie
 	StatusCode  int
 	ContentType string
@@ -29,7 +30,7 @@ type Page struct {
 	NewReqs []*http.Request
 }
 
-func NewPage(req *http.Request, res *http.Response, charset string) *Page {
+func NewPage(req *request.Request, res *http.Response, charset string) *Page {
 
 	page := new(Page)
 	page.NewReqs = make([]*http.Request, 0)
