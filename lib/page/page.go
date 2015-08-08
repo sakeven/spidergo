@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	// "log"
+	// "bufio"
 	"bytes"
 	"net/http"
 	"strings"
@@ -31,7 +32,11 @@ type Page struct {
 }
 
 func NewPage(req *request.Request, res *http.Response, charset string) *Page {
-
+	defer func() {
+		if e := recover(); e != nil {
+			log.Println(e)
+		}
+	}()
 	page := new(Page)
 	page.NewReqs = make([]*http.Request, 0)
 
@@ -43,8 +48,12 @@ func NewPage(req *request.Request, res *http.Response, charset string) *Page {
 
 	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
+		log.Println(err)
 		return nil
 	}
+	defer res.Body.Close()
+
+	//log.Println(res.Status, n, string(b))
 	page.Raw = b
 
 	contentType := page.ContentType

@@ -9,4 +9,5 @@ type Scheduler interface {
 	Get() *request.Request
 	SetMaxDepth(depth uint)
 	Remain() int
+	Total() int
 }

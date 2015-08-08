@@ -1,12 +1,11 @@
 package spidergo
 
 import (
-	// "log"
-
+	"fmt"
 	"log"
 	"net/http"
+	"runtime"
 	"time"
-	// "runtime"
 
 	"github.com/sakeven/spidergo/lib/analyser"
 	"github.com/sakeven/spidergo/lib/downloader"
@@ -27,7 +26,7 @@ type Spider struct {
 	reqChan      chan *request.Request
 	rawChan      chan *raw.Raw
 	pageChan     chan *page.Page
-	downloadPool *pool.Pool
+	downloadPool *downloader.Pool
 	pagePool     *pool.Pool
 	analysePool  *pool.Pool
 
@@ -44,6 +43,7 @@ func New(_analyser analyser.Analyser) *Spider {
 	s := new(Spider)
 	s.threadNum = 1
 	s._analyser = _analyser
+	s.delay = 1
 	s.reqChan = make(chan *request.Request, 8)
 	s.rawChan = make(chan *raw.Raw, 8)
 	s.pageChan = make(chan *page.Page, 8)
@@ -57,8 +57,8 @@ func (s *Spider) AddRequest(req *http.Request) *Spider {
 	return s
 }
 
-func (s *Spider) RegisterDownload(_download downloader.Downloader) *Spider {
-	s._downloader = _download
+func (s *Spider) RegisterDownload(_downloads []downloader.Downloader) *Spider {
+	//s._downloader = _download
 
 	return s
 }
@@ -104,7 +104,7 @@ func (s *Spider) SetDepth(depth uint) *Spider {
 // register register all components which wasn't registered.
 func (s *Spider) register() {
 	if s._downloader == nil {
-		s._downloader = downloader.New()
+		s._downloader = downloader.New("addd")
 	}
 
 	s._downloader.SetCallBack(s.rawChan)
@@ -122,15 +122,38 @@ func (s *Spider) register() {
 	}
 }
 
+// func (s *Spider) download() {
+//     s.downloadPool = pool.NewPool(s.threadNum)
+//     go func() {
+//         for req := range s.reqChan {
+//             s.downloadPool.Get()
+//             go func() {
+//                 defer s.downloadPool.Release()
+//                 log.Println("download")
+//                 s._downloader.Download(req)
+//             }()
+//         }
+//     }()
+// }
+
 func (s *Spider) download() {
-	s.downloadPool = pool.NewPool(s.threadNum)
+
+	var downloaders []downloader.Downloader
+	for i := uint(0); i < s.threadNum; i++ {
+		_downloader := downloader.New(fmt.Sprintf("downloader %d", i))
+		_downloader.SetCallBack(s.rawChan)
+
+		downloaders = append(downloaders, _downloader)
+	}
+
+	s.downloadPool = downloader.NewPool(downloaders)
 	go func() {
 		for req := range s.reqChan {
-			s.downloadPool.Get()
+			_downloader := s.downloadPool.Get()
 			go func() {
-				defer s.downloadPool.Release()
+				defer s.downloadPool.Release(_downloader)
 				log.Println("download")
-				s._downloader.Download(req)
+				_downloader.Download(req)
 			}()
 		}
 	}()
@@ -142,7 +165,7 @@ func (s *Spider) page() {
 		for raw := range s.rawChan {
 			s.pagePool.Get()
 			go func() {
-				defer s.pagePool.Release()
+				defer s.pagePool.Release(0)
 
 				page := page.NewPage(raw.Req, raw.Resp, s.oriCharset)
 				log.Println("page")
@@ -162,12 +185,14 @@ func (s *Spider) analyse() {
 		for page := range s.pageChan {
 			s.analysePool.Get()
 			go func() {
-				defer s.analysePool.Release()
+				defer s.analysePool.Release(0)
 				log.Println("analyse")
 				s._analyser.Analyse(page)
+				log.Println("reqsss", len(page.NewReqs))
 				for _, r := range page.NewReqs {
 					s._scheduler.Add(request.New(r, page.Req.Depth+1))
 				}
+				log.Println("end", s._scheduler.Remain())
 			}()
 		}
 
@@ -186,18 +211,21 @@ func (s *Spider) Run() {
 
 	s.register()
 
-	pool := pool.NewPool(s.threadNum)
-
 	start := time.Now()
 	cnt := 0
 
-	for pool.Used() > 0 || s._scheduler.Remain() > 0 ||
+	for s._scheduler.Remain() > 0 ||
 		s.downloadPool.Used() > 0 ||
 		s.pagePool.Used() > 0 ||
-		s.analysePool.Used() > 0 {
+		s.analysePool.Used() > 0 ||
+		len(s.rawChan) > 0 ||
+		len(s.pageChan) > 0 ||
+		len(s.reqChan) > 0 {
+
 		req := s._scheduler.Get()
 		if req == nil {
-			time.Sleep(1 * time.Second)
+			time.Sleep(time.Second)
+			runtime.Gosched()
 			continue
 		}
 		cnt++
@@ -210,6 +238,6 @@ func (s *Spider) Run() {
 	end := time.Now()
 
 	log.Printf("strat at %s, end at %s, total %s\n", start.String(), end.String(), end.Sub(start).String())
-	log.Printf("total urls %d\n", cnt)
+	log.Printf("total urls %d/%d\n", cnt, s._scheduler.Total())
 
 }

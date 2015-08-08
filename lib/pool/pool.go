@@ -10,19 +10,6 @@ type Pool struct {
 	total uint
 }
 
-func New(n uint, void interface{}) *Pool {
-	p := new(Pool)
-	p.c = make(chan interface{}, n)
-	p.total = n
-	p.used = 0
-
-	for i := uint(1); i <= n; i++ {
-		p.c <- void
-	}
-
-	return p
-}
-
 func NewPool(n uint) *Pool {
 	p := new(Pool)
 	p.c = make(chan interface{}, n)
@@ -35,6 +22,19 @@ func NewPool(n uint) *Pool {
 
 	return p
 }
+
+func New(voids []interface{}) *Pool {
+	p := new(Pool)
+	p.total = uint(len(voids))
+	p.c = make(chan interface{}, p.total)
+	p.used = 0
+
+	for _, void := range voids {
+		p.c <- void
+	}
+
+	return p
+}
 func (p *Pool) Get() interface{} {
 	c := <-p.c
 	p.used++
@@ -42,8 +42,8 @@ func (p *Pool) Get() interface{} {
 	return c
 }
 
-func (p *Pool) Release() {
-	p.c <- 1
+func (p *Pool) Release(void interface{}) {
+	p.c <- void
 	p.used--
 	// log.Println("release")
 

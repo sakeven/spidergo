@@ -69,3 +69,11 @@ func (s *DefaultScheduler) Remain() int {
 
 	return len(s.Reqs)
 }
+
+func (s *DefaultScheduler) Total() int {
+	defer s.lock.Unlock()
+
+	s.lock.Lock()
+
+	return len(s.Reqs) + len(s.Handled)
+}

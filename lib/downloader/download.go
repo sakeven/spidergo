@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -10,15 +11,19 @@ import (
 )
 
 type DefaultDownloader struct {
-	ID string
-	c  chan<- *raw.Raw
+	Name string
+	c    chan<- *raw.Raw
 }
 
 func (d *DefaultDownloader) Download(req *request.Request) {
+	log.Printf("%s in download\n", d.Name)
+
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	res, err := client.Do(req.Req)
 	if err != nil {
+		log.Println(err)
+		d.c <- nil
 		return
 	}
 
@@ -29,20 +34,37 @@ func (d *DefaultDownloader) SetCallBack(c chan<- *raw.Raw) {
 	d.c = c
 }
 
-func New() *DefaultDownloader {
-	return &DefaultDownloader{}
+func New(name string) *DefaultDownloader {
+	return &DefaultDownloader{Name: name}
 }
 
 type Pool struct {
-	*pool.Pool
+	pool *pool.Pool
 }
 
-func NewPool(total uint) *Pool {
+func NewPool(downloaders []Downloader) *Pool {
 	p := &Pool{}
-	p.Pool = pool.New(total, New())
+	var d []interface{}
+	for _, downloader := range downloaders {
+		d = append(d, downloader)
+	}
+
+	p.pool = pool.New(d)
 	return p
 }
 
 func (p *Pool) Get() Downloader {
-	return p.Pool.Get().(Downloader)
+	return p.pool.Get().(Downloader)
+}
+
+func (p *Pool) Release(downloader Downloader) {
+	p.pool.Release(downloader)
+}
+
+func (p *Pool) Total() uint {
+	return p.pool.Total()
+}
+
+func (p *Pool) Used() uint {
+	return p.pool.Used()
 }

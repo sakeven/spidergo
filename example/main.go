@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+	log.SetFlags(log.Ldate | log.Lshortfile | log.Ltime)
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	req, _ := http.NewRequest("GET", "http://acm.hdu.edu.cn/listproblem.php?vol=1", nil)
 
@@ -22,7 +23,7 @@ func main() {
 		SetThreadNum(4).
 		AddRequest(req).
 		SetOriCharset("gb2312").
-		SetDelay(uint(1)).
+		SetDelay(uint(1000)).
 		SetDepth(uint(4)).
 		Run()
 }
@@ -30,30 +31,30 @@ func main() {
 type Analyser struct {
 }
 
-func (a *Analyser) Analyse(page *page.Page) *result.Result {
-	if page.Err != "" {
-		log.Println(page.Err)
+func (a *Analyser) Analyse(pg *page.Page) *result.Result {
+	if pg.Err != "" {
+		log.Println(pg.Err)
 		return nil
 	}
 
-	log.Println(page.Req.Req.URL.String())
+	log.Println(pg.Req.Req.URL.String())
 
-	if page.ContentType == "image/jpeg" {
-		path := strings.Split(page.Req.Req.URL.String(), "/")
+	if pg.ContentType == "image/jpeg" {
+		path := strings.Split(pg.Req.Req.URL.String(), "/")
 		f, err := os.Create("out/" + path[len(path)-1])
 		if err != nil {
 			log.Println(err)
 			return nil
 		}
 		defer f.Close()
-		f.Write(page.Raw)
+		f.Write(pg.Raw)
 		return nil
 	}
 
-	if page.ContentType != "text/html" {
+	if pg.ContentType != "text/html" {
 		return nil
 	}
-	page.Doc.Find("a").Each(func(i int, se *goquery.Selection) {
+	pg.Doc.Find("a").Each(func(i int, se *goquery.Selection) {
 		href, _ := se.Attr("href")
 
 		if strings.HasPrefix(href, "list") {
@@ -63,23 +64,24 @@ func (a *Analyser) Analyse(page *page.Page) *result.Result {
 				log.Println(err)
 				return
 			}
-			page.AddReq(req)
+			pg.AddReq(req)
 		}
 
 	})
 
-	page.Doc.Find("img").Each(func(i int, se *goquery.Selection) {
+	pg.Doc.Find("img").Each(func(i int, se *goquery.Selection) {
 		href, _ := se.Attr("src")
 		href = "http://acm.hdu.edu.cn/" + href
+		href = page.FixUri(href)
 		req, err := http.NewRequest("GET", href, nil)
 		if err != nil {
-			log.Println(err)
+			log.Println("req", err)
 			return
 		}
-		page.AddReq(req)
+		pg.AddReq(req)
 	})
 
-	text := page.Doc.Find("script").Text()
+	text := pg.Doc.Find("script").Text()
 	titlePat := `p\((.*?)\);`
 	titleRx := regexp.MustCompile(titlePat)
 	match := titleRx.FindAllString(text, -1)
@@ -92,7 +94,7 @@ func (a *Analyser) Analyse(page *page.Page) *result.Result {
 				log.Println(err)
 				continue
 			}
-			page.AddReq(req)
+			pg.AddReq(req)
 		}
 	}
 	return nil
