@@ -10,6 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/sakeven/spidergo"
+	"github.com/sakeven/spidergo/lib/analyser"
 	"github.com/sakeven/spidergo/lib/page"
 	"github.com/sakeven/spidergo/lib/result"
 )
@@ -19,11 +20,10 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	req, _ := http.NewRequest("GET", "http://acm.hdu.edu.cn/listproblem.php?vol=1", nil)
 
-	spidergo.New(NewAnalyser()).
+	spidergo.New([]analyser.Analyser{NewAnalyser(), NewAnalyser()}).
 		SetThreadNum(4).
 		AddRequest(req).
-		SetOriCharset("gb2312").
-		SetDelay(uint(1000)).
+		SetDelay(uint(100)).
 		SetDepth(uint(4)).
 		Run()
 }
@@ -37,7 +37,7 @@ func (a *Analyser) Analyse(pg *page.Page) *result.Result {
 		return nil
 	}
 
-	log.Println(pg.Req.Req.URL.String())
+	// log.Println(pg.Req.Req.URL.String())
 
 	if pg.ContentType == "image/jpeg" {
 		path := strings.Split(pg.Req.Req.URL.String(), "/")

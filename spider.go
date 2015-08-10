@@ -11,15 +11,12 @@ import (
 	"github.com/sakeven/spidergo/lib/downloader"
 	"github.com/sakeven/spidergo/lib/page"
 	"github.com/sakeven/spidergo/lib/pipe"
-	"github.com/sakeven/spidergo/lib/pool"
 	"github.com/sakeven/spidergo/lib/raw"
 	"github.com/sakeven/spidergo/lib/request"
 	"github.com/sakeven/spidergo/lib/scheduler"
 )
 
 type Spider struct {
-	_downloader  downloader.Downloader
-	_analyser    analyser.Analyser
 	_scheduler   scheduler.Scheduler
 	pipelines    []pipe.Piper
 	reqs         []*request.Request
@@ -27,26 +24,28 @@ type Spider struct {
 	rawChan      chan *raw.Raw
 	pageChan     chan *page.Page
 	downloadPool *downloader.Pool
-	pagePool     *pool.Pool
-	analysePool  *pool.Pool
+	pagePool     *page.Pool
+	analyserPool *analyser.Pool
 
-	delay      uint
-	threadNum  uint
-	oriCharset string
-	depth      uint
+	delay     uint
+	threadNum uint
+	depth     uint
+
+	OnWatch bool
 }
 
 type Result struct {
 }
 
-func New(_analyser analyser.Analyser) *Spider {
+func New(_analysers []analyser.Analyser) *Spider {
 	s := new(Spider)
 	s.threadNum = 1
-	s._analyser = _analyser
 	s.delay = 1
 	s.reqChan = make(chan *request.Request, 8)
-	s.rawChan = make(chan *raw.Raw, 8)
 	s.pageChan = make(chan *page.Page, 8)
+	s.rawChan = make(chan *raw.Raw, 8)
+
+	s.analyserPool = analyser.NewPool(_analysers)
 	return s
 }
 
@@ -57,9 +56,14 @@ func (s *Spider) AddRequest(req *http.Request) *Spider {
 	return s
 }
 
-func (s *Spider) RegisterDownload(_downloads []downloader.Downloader) *Spider {
-	//s._downloader = _download
+func (s *Spider) RegisterDownload(downloaders []downloader.Downloader) *Spider {
+	s.rawChan = make(chan *raw.Raw, len(downloaders))
 
+	for _, _downloader := range downloaders {
+		_downloader.SetCallBack(s.rawChan)
+	}
+
+	s.downloadPool = downloader.NewPool(downloaders)
 	return s
 }
 
@@ -86,14 +90,6 @@ func (s *Spider) SetDelay(delay uint) *Spider {
 	return s
 }
 
-// SetOriCharset set pages' original charset.
-// Sometimes we can't get charset info from HTTP header Content-type.
-func (s *Spider) SetOriCharset(charset string) *Spider {
-	s.oriCharset = charset
-
-	return s
-}
-
 // SetDepth set how deep we dig in.
 func (s *Spider) SetDepth(depth uint) *Spider {
 	s.depth = depth
@@ -103,11 +99,26 @@ func (s *Spider) SetDepth(depth uint) *Spider {
 
 // register register all components which wasn't registered.
 func (s *Spider) register() {
-	if s._downloader == nil {
-		s._downloader = downloader.New("addd")
+
+	if s.pagePool == nil {
+		var pageProcessors []page.PageProcessor
+		for i := uint(0); i < s.threadNum; i++ {
+			pageProcessor := page.NewPageProcessor()
+			pageProcessors = append(pageProcessors, pageProcessor)
+		}
+		s.pagePool = page.NewPool(pageProcessors)
 	}
 
-	s._downloader.SetCallBack(s.rawChan)
+	if s.downloadPool == nil {
+		var downloaders []downloader.Downloader
+		for i := uint(0); i < s.threadNum; i++ {
+			_downloader := downloader.New(fmt.Sprintf("down %d", i))
+			_downloader.SetCallBack(s.rawChan)
+			downloaders = append(downloaders, _downloader)
+		}
+		s.downloadPool = downloader.NewPool(downloaders)
+	}
+
 	s.download()
 	s.page()
 	s.analyse()
@@ -116,43 +127,26 @@ func (s *Spider) register() {
 		s._scheduler = scheduler.New()
 	}
 
+	s._scheduler.SetMaxDepth(s.depth)
 	for _, req := range s.reqs {
-		s._scheduler.SetMaxDepth(s.depth)
 		s._scheduler.Add(req)
 	}
-}
 
-// func (s *Spider) download() {
-//     s.downloadPool = pool.NewPool(s.threadNum)
-//     go func() {
-//         for req := range s.reqChan {
-//             s.downloadPool.Get()
-//             go func() {
-//                 defer s.downloadPool.Release()
-//                 log.Println("download")
-//                 s._downloader.Download(req)
-//             }()
-//         }
-//     }()
-// }
+	if s.OnWatch || true {
+		s.Watch()
+	}
+
+	time.Sleep(1 * time.Second)
+}
 
 func (s *Spider) download() {
 
-	var downloaders []downloader.Downloader
-	for i := uint(0); i < s.threadNum; i++ {
-		_downloader := downloader.New(fmt.Sprintf("downloader %d", i))
-		_downloader.SetCallBack(s.rawChan)
-
-		downloaders = append(downloaders, _downloader)
-	}
-
-	s.downloadPool = downloader.NewPool(downloaders)
 	go func() {
 		for req := range s.reqChan {
 			_downloader := s.downloadPool.Get()
 			go func() {
 				defer s.downloadPool.Release(_downloader)
-				log.Println("download")
+				//		log.Println(" download")
 				_downloader.Download(req)
 			}()
 		}
@@ -160,15 +154,15 @@ func (s *Spider) download() {
 }
 
 func (s *Spider) page() {
-	s.pagePool = pool.NewPool(s.threadNum)
 	go func() {
 		for raw := range s.rawChan {
-			s.pagePool.Get()
+			//	log.Printf("recive raw\n")
+			pageProcessor := s.pagePool.Get()
 			go func() {
-				defer s.pagePool.Release(0)
+				defer s.pagePool.Release(pageProcessor)
 
-				page := page.NewPage(raw.Req, raw.Resp, s.oriCharset)
-				log.Println("page")
+				page := pageProcessor.Process(raw.Req, raw.Resp)
+				//		log.Println("page")
 				if page == nil {
 					return
 				}
@@ -180,19 +174,18 @@ func (s *Spider) page() {
 }
 
 func (s *Spider) analyse() {
-	s.analysePool = pool.NewPool(s.threadNum)
 	go func() {
 		for page := range s.pageChan {
-			s.analysePool.Get()
+			_analyser := s.analyserPool.Get()
 			go func() {
-				defer s.analysePool.Release(0)
-				log.Println("analyse")
-				s._analyser.Analyse(page)
-				log.Println("reqsss", len(page.NewReqs))
+				defer s.analyserPool.Release(_analyser)
+				//				log.Println("analyse")
+				_analyser.Analyse(page)
+				//				log.Println("reqsss", len(page.NewReqs))
 				for _, r := range page.NewReqs {
 					s._scheduler.Add(request.New(r, page.Req.Depth+1))
 				}
-				log.Println("end", s._scheduler.Remain())
+				//				log.Println("end", s._scheduler.Remain())
 			}()
 		}
 
@@ -206,22 +199,65 @@ func (s *Spider) Stop() {
 	close(s.pageChan)
 }
 
-// Run begin run spider.
-func (s *Spider) Run() {
+func (s *Spider) Watch() {
 
-	s.register()
+	go func() {
+		for true {
+			if s.CanStop() {
+				return
+			}
+			log.Println(s._scheduler.Remain(),
+				s._scheduler.Total(),
+				s.downloadPool.Used(),
+				s.pagePool.Used(),
+				s.analyserPool.Used(),
+				len(s.rawChan),
+				len(s.pageChan),
+				len(s.reqChan))
+			time.Sleep(time.Second)
 
-	start := time.Now()
-	cnt := 0
+		}
+	}()
+}
 
-	for s._scheduler.Remain() > 0 ||
+func (s *Spider) CanStop() bool {
+
+	if s._scheduler.Remain() > 0 ||
 		s.downloadPool.Used() > 0 ||
 		s.pagePool.Used() > 0 ||
-		s.analysePool.Used() > 0 ||
+		s.analyserPool.Used() > 0 ||
 		len(s.rawChan) > 0 ||
 		len(s.pageChan) > 0 ||
 		len(s.reqChan) > 0 {
+		return false
 
+	}
+	return true
+}
+
+// Run begin run spider.
+func (s *Spider) Run() {
+	defer s.Stop()
+
+	s.register()
+
+	cnt := 0
+	stopCnt := 1
+	start := time.Now()
+
+	for true {
+		if s.CanStop() {
+			if stopCnt == 8 {
+				break
+			}
+			stopCnt *= 2
+			runtime.Gosched()
+			log.Printf("can stop %d\n", stopCnt)
+			time.Sleep(time.Duration(stopCnt) * time.Second)
+			runtime.Gosched()
+			continue
+		}
+		stopCnt = 1
 		req := s._scheduler.Get()
 		if req == nil {
 			time.Sleep(time.Second)
@@ -229,7 +265,7 @@ func (s *Spider) Run() {
 			continue
 		}
 		cnt++
-		log.Println("sched")
+		//		log.Println("sched")
 		s.reqChan <- req
 
 		time.Sleep(time.Duration(s.delay) * time.Microsecond)

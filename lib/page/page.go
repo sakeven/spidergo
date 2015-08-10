@@ -31,7 +31,7 @@ type Page struct {
 	NewReqs []*http.Request
 }
 
-func NewPage(req *request.Request, res *http.Response, charset string) *Page {
+func New(req *request.Request, res *http.Response) *Page {
 	defer func() {
 		if e := recover(); e != nil {
 			log.Println(e)
@@ -43,7 +43,6 @@ func NewPage(req *request.Request, res *http.Response, charset string) *Page {
 	page.ContentType = res.Header.Get("Content-type")
 	page.Cookies = res.Cookies()
 	page.StatusCode = res.StatusCode
-	page.OriCharset = charset
 	page.Req = req
 
 	b, err := ioutil.ReadAll(res.Body)
@@ -78,7 +77,7 @@ func (p *Page) AddReq(req *http.Request) {
 func (p *Page) getOriCharset() string {
 	var idx = 0
 	if idx = strings.Index(p.ContentType, "charset="); idx < 0 {
-		return p.OriCharset
+		return "gbk2312"
 	}
 	return p.ContentType[idx:]
 }

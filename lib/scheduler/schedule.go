@@ -30,8 +30,8 @@ func (s *DefaultScheduler) SetMaxDepth(depth uint) {
 
 // Add adds a new request
 func (s *DefaultScheduler) Add(req *request.Request) {
-	defer s.lock.Unlock()
 	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	// out of sched handle depth
 	if req.Depth > s.maxDepth {
@@ -51,8 +51,8 @@ func (s *DefaultScheduler) Add(req *request.Request) {
 }
 
 func (s *DefaultScheduler) Get() *request.Request {
-	defer s.lock.Unlock()
 	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	for url, req := range s.Reqs {
 		s.Handled[url] = req
@@ -64,16 +64,15 @@ func (s *DefaultScheduler) Get() *request.Request {
 }
 
 func (s *DefaultScheduler) Remain() int {
-	defer s.lock.Unlock()
 	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	return len(s.Reqs)
 }
 
 func (s *DefaultScheduler) Total() int {
-	defer s.lock.Unlock()
-
 	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	return len(s.Reqs) + len(s.Handled)
 }

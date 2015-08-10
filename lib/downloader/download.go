@@ -16,7 +16,6 @@ type DefaultDownloader struct {
 }
 
 func (d *DefaultDownloader) Download(req *request.Request) {
-	log.Printf("%s in download\n", d.Name)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 
