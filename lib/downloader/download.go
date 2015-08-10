@@ -22,7 +22,6 @@ func (d *DefaultDownloader) Download(req *request.Request) {
 	res, err := client.Do(req.Req)
 	if err != nil {
 		log.Println(err)
-		d.c <- nil
 		return
 	}
 
