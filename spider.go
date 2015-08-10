@@ -157,6 +157,9 @@ func (s *Spider) page() {
 	go func() {
 		for raw := range s.rawChan {
 			//	log.Printf("recive raw\n")
+			if raw == nil {
+				continue
+			}
 			pageProcessor := s.pagePool.Get()
 			go func() {
 				defer s.pagePool.Release(pageProcessor)
