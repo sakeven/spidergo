@@ -2,24 +2,28 @@ package page
 
 import (
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"log"
 	// "log"
+	// "bufio"
 	"bytes"
 	"net/http"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	iconv "github.com/djimenez/iconv-go"
+	"github.com/sakeven/spidergo/lib/request"
+	"golang.org/x/net/html/charset"
 )
 
 type Page struct {
-	Req         *http.Request
+	Req         *request.Request
 	Cookies     []*http.Cookie
 	StatusCode  int
 	ContentType string
 	OriCharset  string
 	Err         string
+	Failed      bool
 
 	Raw     []byte
 	Doc     *goquery.Document
@@ -29,27 +33,38 @@ type Page struct {
 	NewReqs []*http.Request
 }
 
-func NewPage(req *http.Request, res *http.Response, charset string) *Page {
-
+func New(req *request.Request, res *http.Response) *Page {
+	defer func() {
+		if e := recover(); e != nil {
+			log.Println(e)
+		}
+		res.Body.Close()
+	}()
 	page := new(Page)
 	page.NewReqs = make([]*http.Request, 0)
 
 	page.ContentType = res.Header.Get("Content-type")
 	page.Cookies = res.Cookies()
 	page.StatusCode = res.StatusCode
-	page.OriCharset = charset
 	page.Req = req
 
-	b, err := ioutil.ReadAll(res.Body)
+	body, err := page.Iconv(res.Body)
 	if err != nil {
+		log.Println(err)
 		return nil
 	}
+
+	b, err := ioutil.ReadAll(body)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+
 	page.Raw = b
 
 	contentType := page.ContentType
 	switch {
 	case contain(contentType, "text/html"):
-		page.ConvertCharset()
 		page.ParseHtml()
 	case contain(contentType, "application/json"):
 		page.ParseJson()
@@ -61,31 +76,19 @@ func NewPage(req *http.Request, res *http.Response, charset string) *Page {
 	return page
 }
 
+func (p *Page) Iconv(reader io.Reader) (io.Reader, error) {
+	contentType := p.ContentType
+	switch {
+	case contain(contentType, "text"):
+		return charset.NewReader(reader, contentType)
+	}
+
+	return reader, nil
+
+}
+
 func (p *Page) AddReq(req *http.Request) {
 	p.NewReqs = append(p.NewReqs, req)
-}
-
-func (p *Page) getOriCharset() string {
-	var idx = 0
-	if idx = strings.Index(p.ContentType, "charset="); idx < 0 {
-		return p.OriCharset
-	}
-	return p.ContentType[idx:]
-}
-
-//TODO charset
-func (p *Page) ConvertCharset() {
-	charset := p.getOriCharset()
-	if charset != "utf-8" {
-
-		raw := make([]byte, len(p.Raw)*2)
-		_, _, err := iconv.Convert(p.Raw, raw, charset, "utf-8")
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		p.Raw = raw
-	}
 }
 
 func (p *Page) ParseHtml() {

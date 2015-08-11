@@ -1,9 +1,11 @@
 package downloader
 
 import (
-	"net/http"
+	"github.com/sakeven/spidergo/lib/raw"
+	"github.com/sakeven/spidergo/lib/request"
 )
 
 type Downloader interface {
-	Download(req *http.Request) (*http.Response, error)
+	SetCallBack(c chan<- *raw.Raw)
+	Download(req *request.Request)
 }
