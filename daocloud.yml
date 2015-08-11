@@ -1,0 +1,12 @@
+image: daocloud/ci-golang:1.4
+
+before_script:
+  - mkdir -p /gopath/src/github.com/sakeven/spidergo
+  - mv ./* /gopath/src/github.com/sakeven/spidergo
+
+script:
+  - export GOPATH=/gopath
+  - cd /gopath/src/github.com/sakeven/spidergo
+  - go vet ./...
+  - go test -v ./...
+  - go install 
