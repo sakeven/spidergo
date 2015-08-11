@@ -25,7 +25,7 @@ func (d *DefaultDownloader) Download(req *request.Request) {
 		return
 	}
 
-	d.c <- &raw.Raw{req, res}
+	d.c <- &raw.Raw{Req: req, Resp: res}
 }
 
 func (d *DefaultDownloader) SetCallBack(c chan<- *raw.Raw) {

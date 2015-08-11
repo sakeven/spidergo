@@ -144,46 +144,46 @@ func (s *Spider) download() {
 	go func() {
 		for req := range s.reqChan {
 			_downloader := s.downloadPool.Get()
-			go func() {
+			go func(req *request.Request) {
 				defer s.downloadPool.Release(_downloader)
 				_downloader.Download(req)
-			}()
+			}(req)
 		}
 	}()
 }
 
 func (s *Spider) page() {
 	go func() {
-		for raw := range s.rawChan {
-			if raw == nil {
+		for r := range s.rawChan {
+			if r == nil {
 				continue
 			}
 			pageProcessor := s.pagePool.Get()
-			go func() {
+			go func(r *raw.Raw) {
 				defer s.pagePool.Release(pageProcessor)
 
-				page := pageProcessor.Process(raw.Req, raw.Resp)
+				page := pageProcessor.Process(r.Req, r.Resp)
 				if page == nil {
 					return
 				}
 
 				s.pageChan <- page
-			}()
+			}(r)
 		}
 	}()
 }
 
 func (s *Spider) analyse() {
 	go func() {
-		for page := range s.pageChan {
+		for p := range s.pageChan {
 			_analyser := s.analyserPool.Get()
-			go func() {
+			go func(p *page.Page) {
 				defer s.analyserPool.Release(_analyser)
-				_analyser.Analyse(page)
-				for _, r := range page.NewReqs {
-					s._scheduler.Add(request.New(r, page.Req.Depth+1))
+				_analyser.Analyse(p)
+				for _, r := range p.NewReqs {
+					s._scheduler.Add(request.New(r, p.Req.Depth+1))
 				}
-			}()
+			}(p)
 		}
 
 	}()
