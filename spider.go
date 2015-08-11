@@ -146,7 +146,6 @@ func (s *Spider) download() {
 			_downloader := s.downloadPool.Get()
 			go func() {
 				defer s.downloadPool.Release(_downloader)
-				//		log.Println(" download")
 				_downloader.Download(req)
 			}()
 		}
@@ -156,7 +155,6 @@ func (s *Spider) download() {
 func (s *Spider) page() {
 	go func() {
 		for raw := range s.rawChan {
-			//	log.Printf("recive raw\n")
 			if raw == nil {
 				continue
 			}
@@ -165,7 +163,6 @@ func (s *Spider) page() {
 				defer s.pagePool.Release(pageProcessor)
 
 				page := pageProcessor.Process(raw.Req, raw.Resp)
-				//		log.Println("page")
 				if page == nil {
 					return
 				}
@@ -182,13 +179,10 @@ func (s *Spider) analyse() {
 			_analyser := s.analyserPool.Get()
 			go func() {
 				defer s.analyserPool.Release(_analyser)
-				//				log.Println("analyse")
 				_analyser.Analyse(page)
-				//				log.Println("reqsss", len(page.NewReqs))
 				for _, r := range page.NewReqs {
 					s._scheduler.Add(request.New(r, page.Req.Depth+1))
 				}
-				//				log.Println("end", s._scheduler.Remain())
 			}()
 		}
 
@@ -268,7 +262,6 @@ func (s *Spider) Run() {
 			continue
 		}
 		cnt++
-		//		log.Println("sched")
 		s.reqChan <- req
 
 		time.Sleep(time.Duration(s.delay) * time.Microsecond)
