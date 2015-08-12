@@ -15,18 +15,6 @@ type PageProcessor interface {
 	Process(req *request.Request, resp *http.Response) *Page
 }
 
-type DefaultPageProcessor struct {
-}
-
-func NewPageProcessor() PageProcessor {
-	return &DefaultPageProcessor{}
-
-}
-
-func (d DefaultPageProcessor) Process(req *request.Request, resp *http.Response) *Page {
-	return New(req, resp)
-}
-
 func NewPool(processors []PageProcessor) *Pool {
 	p := &Pool{}
 	var voids []interface{}

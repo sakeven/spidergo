@@ -37,7 +37,7 @@ func (a *Analyser) Analyse(pg *page.Page) *result.Result {
 		return nil
 	}
 
-	// log.Println(pg.Req.Req.URL.String())
+	log.Println(pg.Req.Req.URL.String())
 
 	if pg.ContentType == "image/jpeg" {
 		path := strings.Split(pg.Req.Req.URL.String(), "/")
@@ -54,7 +54,13 @@ func (a *Analyser) Analyse(pg *page.Page) *result.Result {
 	if pg.ContentType != "text/html" {
 		return nil
 	}
-	pg.Doc.Find("a").Each(func(i int, se *goquery.Selection) {
+
+	doc, err := pg.ParseHtml()
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+	doc.Find("a").Each(func(i int, se *goquery.Selection) {
 		href, _ := se.Attr("href")
 
 		if strings.HasPrefix(href, "list") {
@@ -69,7 +75,7 @@ func (a *Analyser) Analyse(pg *page.Page) *result.Result {
 
 	})
 
-	pg.Doc.Find("img").Each(func(i int, se *goquery.Selection) {
+	doc.Find("img").Each(func(i int, se *goquery.Selection) {
 		href, _ := se.Attr("src")
 		href = "http://acm.hdu.edu.cn/" + href
 		href = page.FixUri(href)
@@ -81,7 +87,7 @@ func (a *Analyser) Analyse(pg *page.Page) *result.Result {
 		pg.AddReq(req)
 	})
 
-	text := pg.Doc.Find("script").Text()
+	text := doc.Find("script").Text()
 	titlePat := `p\((.*?)\);`
 	titleRx := regexp.MustCompile(titlePat)
 	match := titleRx.FindAllString(text, -1)

@@ -2,18 +2,13 @@ package page
 
 import (
 	"encoding/json"
-	"io"
-	"io/ioutil"
-	"log"
 	// "log"
 	// "bufio"
 	"bytes"
 	"net/http"
-	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/sakeven/spidergo/lib/request"
-	"golang.org/x/net/html/charset"
 )
 
 type Page struct {
@@ -25,88 +20,37 @@ type Page struct {
 	Err         string
 	Failed      bool
 
-	Raw     []byte
-	Doc     *goquery.Document
-	JsonMap map[string]string
-	Body    string
+	Raw []byte
 
 	NewReqs []*http.Request
 }
 
-func New(req *request.Request, res *http.Response) *Page {
-	defer func() {
-		if e := recover(); e != nil {
-			log.Println(e)
-		}
-		res.Body.Close()
-	}()
-	page := new(Page)
-	page.NewReqs = make([]*http.Request, 0)
-
-	page.ContentType = res.Header.Get("Content-type")
-	page.Cookies = res.Cookies()
-	page.StatusCode = res.StatusCode
-	page.Req = req
-
-	body, err := page.Iconv(res.Body)
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-
-	b, err := ioutil.ReadAll(body)
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-
-	page.Raw = b
-
-	contentType := page.ContentType
-	switch {
-	case contain(contentType, "text/html"):
-		page.ParseHtml()
-	case contain(contentType, "application/json"):
-		page.ParseJson()
-	case contain(contentType, "text/plain"):
-		page.ParseText()
-	default:
-	}
-
-	return page
+func (p *Page) GetReq() *request.Request {
+	return p.Req
 }
 
-func (p *Page) Iconv(reader io.Reader) (io.Reader, error) {
-	contentType := p.ContentType
-	switch {
-	case contain(contentType, "text"):
-		return charset.NewReader(reader, contentType)
-	}
+func (p *Page) GetStatusCode() int {
+	return p.StatusCode
+}
 
-	return reader, nil
-
+func (p *Page) GetCookies() []*http.Cookie {
+	return p.Cookies
 }
 
 func (p *Page) AddReq(req *http.Request) {
 	p.NewReqs = append(p.NewReqs, req)
 }
 
-func (p *Page) ParseHtml() {
-	var err error
-	p.Doc, err = goquery.NewDocumentFromReader(bytes.NewReader(p.Raw))
-	if err != nil {
-		p.Err = err.Error()
-	}
+func (p *Page) ParseHtml() (*goquery.Document, error) {
+	return goquery.NewDocumentFromReader(bytes.NewReader(p.Raw))
 }
 
-func (p *Page) ParseJson() {
-	json.Unmarshal(p.Raw, &p.JsonMap)
+func (p *Page) ParseJson() map[string]string {
+	jsonMap := make(map[string]string)
+	json.Unmarshal(p.Raw, jsonMap)
+	return jsonMap
 }
 
-func (p *Page) ParseText() {
-	p.Body = string(p.Raw)
-}
-
-func contain(src string, dst string) bool {
-	return strings.Index(src, dst) >= 0
+func (p *Page) ParseText() string {
+	return string(p.Raw)
 }
