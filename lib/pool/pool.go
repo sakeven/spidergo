@@ -44,7 +44,9 @@ func (p *Pool) Get() interface{} {
 
 func (p *Pool) Release(void interface{}) {
 	p.c <- void
-	p.used--
+	if p.used > 0 {
+		p.used--
+	}
 	// log.Println("release")
 
 }
