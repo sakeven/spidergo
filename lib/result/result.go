@@ -1,5 +1,5 @@
 package result
 
 type Result struct {
-	items map[string]string
+	Items map[string]string
 }
