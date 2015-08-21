@@ -128,4 +128,4 @@ func NewAnalyser() *Analyser {
 ```
 
 ##License
-Under [MIT](https://github.com/sakeven/spidergo/LICENSE)
+Under [MIT](https://github.com/sakeven/spidergo/blob/master/LICENSE)
