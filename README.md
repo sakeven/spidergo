@@ -1,6 +1,7 @@
 # spidergo
 
 :beetle: A high performance spider(crawler) written in go.
+[![GoDoc](https://img.shields.io/badge/GoDoc-API%20Documentation-blue.svg?style=flat)](http://godoc.org/github.com/sakeven/spidergo)
 
 ##Feature
 
