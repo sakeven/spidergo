@@ -1,21 +1,22 @@
 # spidergo
 
-:beetle: A high performance spider(crawler) written in go.
 [![GoDoc](https://img.shields.io/badge/GoDoc-API%20Documentation-blue.svg?style=flat)](http://godoc.org/github.com/sakeven/spidergo)
 
-##Feature
+:beetle: A high performance spider(crawler) written in go.
+
+## Feature
 
 * Concurrent
 * Distributed
 * Support analyse html page and download binary file
 
-##Installation
+## Installation
 
 ```bash
 go get github.com/sakeven/spidergo
 ```
 
-##Example
+## Example
 
 There is a example in `github/sakeven/spidergo/example`. Blow is a file from example.
 
@@ -128,5 +129,5 @@ func NewAnalyser() *Analyser {
 
 ```
 
-##License
+## License
 Under [MIT](https://github.com/sakeven/spidergo/blob/master/LICENSE)
