@@ -132,7 +132,7 @@ func (s *Spider) register() {
 		s._scheduler.Add(req)
 	}
 
-	if s.OnWatch || true {
+	if s.OnWatch {
 		s.Watch()
 	}
 
@@ -179,7 +179,11 @@ func (s *Spider) analyse() {
 			_analyser := s.analyserPool.Get()
 			go func(p *page.Page) {
 				defer s.analyserPool.Release(_analyser)
-				_analyser.Analyse(p)
+				res := _analyser.Analyse(p)
+				for _, pipeline := range s.pipelines {
+					pipeline.Write(res, "")
+				}
+
 				for _, r := range p.NewReqs {
 					s._scheduler.Add(request.New(r, p.Req.Depth+1))
 				}
