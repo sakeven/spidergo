@@ -273,7 +273,7 @@ func (s *Spider) Run() {
 
 	end := time.Now()
 
-	log.Printf("strat at %s, end at %s, total %s\n", start.String(), end.String(), end.Sub(start).String())
+	log.Printf("start at %s, end at %s, total %s\n", start.String(), end.String(), end.Sub(start).String())
 	log.Printf("total urls %d/%d\n", cnt, s._scheduler.Total())
 
 }
